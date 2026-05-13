@@ -303,8 +303,15 @@ def _extract_json_payload(raw_text: str) -> dict:
         return json.loads(raw_text[start : end + 1])
 
 
+def _looks_like_drawio_xml(text: str) -> bool:
+    """Quick sanity check — not full XML parsing, just structural markers."""
+    t = text.strip()
+    return "<mxfile" in t and "</mxfile>" in t and "<mxCell" in t
+
+
 def _normalize_plan_payload(payload: dict, deployment: str) -> DevelopmentPlanResponse:
-    if not payload.get("diagram_xml"):
+    xml = payload.get("diagram_xml", "")
+    if not xml or not _looks_like_drawio_xml(xml):
         payload["diagram_xml"] = _dummy_drawio_xml()
 
     raw_metadata = payload.setdefault("metadata", {})
@@ -327,10 +334,12 @@ def _normalize_plan_payload(payload: dict, deployment: str) -> DevelopmentPlanRe
 
 def _build_generation_prompt(requirement_text: str, has_mcp: bool) -> str:
     mcp_instruction = (
-        "If the Draw.io MCP tool is available, use it to produce the diagram XML. "
-        "If the tool is unavailable or unnecessary, produce a simple valid draw.io mxfile XML string yourself."
+        "You have access to draw.io MCP tools. "
+        "Use search_shapes to find style strings for specific shapes (cloud, database, user, etc.) "
+        "before writing XML. After generating the XML yourself, call create_diagram to render it. "
+        "The diagram_xml field must contain YOUR raw XML, not the rendered output."
         if has_mcp
-        else "No external diagram MCP tool is configured, so produce a simple valid draw.io mxfile XML string yourself."
+        else "Produce a valid draw.io mxfile XML string yourself."
     )
 
     return f"""
@@ -347,6 +356,21 @@ Return JSON only. The response must include:
 - diagram_xml as a draw.io / diagrams.net mxfile XML string
 - tasks with id, title, description, status, priority, estimate_points, owner_role, tags
 - metadata as an object
+
+Diagram rules:
+- You MUST generate the diagram_xml yourself as valid, uncompressed draw.io XML.
+- Keep it simple: 8-16 nodes, left-to-right or top-to-bottom flow, clear short labels.
+- Include relevant actors, services, and data stores from the requirement.
+- Use edgeStyle=orthogonalEdgeStyle for connectors.
+- Adequate spacing between nodes (at least 160 px horizontal, 100 px vertical).
+
+Mandatory XML structure:
+- Wrap in <mxfile><diagram name="..."><mxGraphModel ...><root>...</root></mxGraphModel></diagram></mxfile>
+- First two cells: <mxCell id="0"/> and <mxCell id="1" parent="0"/>
+- Vertex cells: vertex="1" with <mxGeometry x="" y="" width="" height="" as="geometry"/>
+- Edge cells: edge="1" with source="id" target="id" and <mxGeometry relative="1" as="geometry"/>
+- Style strings use key=value; format (e.g. "rounded=1;whiteSpace=wrap;html=1;")
+- All id values must be unique.
 
 Rules:
 - Use task status values only: todo, in_progress, done.
