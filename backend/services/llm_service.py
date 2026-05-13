@@ -16,43 +16,43 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT_DIR / ".env.local")
 load_dotenv(ROOT_DIR / ".env")
 
-TaskStatus = Literal["todo", "in_progress", "done"]
-TaskPriority = Literal["low", "medium", "high"]
+FeaturePriority = Literal["must_have", "should_have", "nice_to_have"]
+RiskCategory = Literal["business", "technical", "timeline", "integration"]
 
 
-class UserStory(BaseModel):
-    id: str
-    title: str
-    as_a: str
-    i_want: str
-    so_that: str
-    acceptance_criteria: list[str]
-    priority: TaskPriority
+class Feature(BaseModel):
+    name: str
+    description: str
+    module: str
+    priority: FeaturePriority
+
+
+class TimelinePhase(BaseModel):
+    phase: str
+    duration: str
+    deliverables: list[str]
+
+
+class Risk(BaseModel):
+    risk: str
+    category: RiskCategory
+    mitigation: str
 
 
 class FunctionalRequirementDocument(BaseModel):
-    title: str
-    summary: str
-    functional_requirements: list[str]
-    non_functional_requirements: list[str]
-    user_stories: list[UserStory]
-
-
-class BacklogTask(BaseModel):
-    id: str
-    title: str
-    description: str
-    status: TaskStatus
-    priority: TaskPriority
-    estimate_points: int = Field(ge=1, le=13)
-    owner_role: str
-    tags: list[str]
+    problem_summary: str
+    proposed_solution: str
+    scope_of_work: str
+    user_flow: str
+    initial_architecture: str
+    feature_breakdown: list[Feature]
+    timeline_estimation: list[TimelinePhase]
+    risk_analysis: list[Risk]
 
 
 class DevelopmentPlanResponse(BaseModel):
     frd: FunctionalRequirementDocument
     diagram_xml: str
-    tasks: list[BacklogTask]
     metadata: dict[str, str]
 
 
@@ -108,121 +108,140 @@ def _dummy_drawio_xml() -> str:
 def _mock_development_plan(requirement_text: str) -> DevelopmentPlanResponse:
     summary = _summarize_requirement(requirement_text)
 
-    user_stories = [
-        UserStory(
-            id="US-001",
-            title="Submit raw requirements",
-            as_a="product owner",
-            i_want="to paste or upload requirement material",
-            so_that="the team can generate a usable development plan quickly",
-            acceptance_criteria=[
-                "The user can submit free-form requirement text.",
-                "The user can attach a PDF or DOCX placeholder file.",
-                "The system validates that at least one input source exists.",
-            ],
-            priority="high",
-        ),
-        UserStory(
-            id="US-002",
-            title="Review generated FRD",
-            as_a="business analyst",
-            i_want="to see functional requirements and user stories",
-            so_that="I can validate scope before development starts",
-            acceptance_criteria=[
-                "The FRD is returned as structured JSON.",
-                "User stories include acceptance criteria and priority.",
-            ],
-            priority="high",
-        ),
-        UserStory(
-            id="US-003",
-            title="Inspect generated architecture diagram",
-            as_a="technical lead",
-            i_want="to receive draw.io XML",
-            so_that="I can refine the architecture diagram in diagrams.net",
-            acceptance_criteria=[
-                "The API response contains a draw.io-compatible XML string.",
-                "The frontend provides a readable preview and download option.",
-            ],
-            priority="medium",
-        ),
-    ]
-
-    tasks = [
-        BacklogTask(
-            id="TASK-001",
-            title="Implement FastAPI generation endpoint",
-            description="Create the multipart endpoint and response schema for plan generation.",
-            status="done",
-            priority="high",
-            estimate_points=3,
-            owner_role="Backend Developer",
-            tags=["api", "fastapi"],
-        ),
-        BacklogTask(
-            id="TASK-002",
-            title="Build dashboard input experience",
-            description="Create the requirement textarea, file upload, and submit states.",
-            status="in_progress",
-            priority="high",
-            estimate_points=5,
-            owner_role="Frontend Developer",
-            tags=["nextjs", "tailwind"],
-        ),
-        BacklogTask(
-            id="TASK-003",
-            title="Render FRD and user stories",
-            description="Display generated requirements in a review-friendly structure.",
-            status="todo",
-            priority="high",
-            estimate_points=5,
-            owner_role="Frontend Developer",
-            tags=["ui", "json"],
-        ),
-        BacklogTask(
-            id="TASK-004",
-            title="Wire OpenAI Responses orchestration",
-            description="Replace mock output with a structured OpenAI Responses API call.",
-            status="todo",
-            priority="medium",
-            estimate_points=8,
-            owner_role="AI Engineer",
-            tags=["llm", "responses-api"],
-        ),
-        BacklogTask(
-            id="TASK-005",
-            title="Connect Draw.io MCP server",
-            description="Allow the LLM to call the diagram generation MCP tool and persist returned XML.",
-            status="todo",
-            priority="medium",
-            estimate_points=8,
-            owner_role="AI Engineer",
-            tags=["mcp", "diagram"],
-        ),
-    ]
-
     return DevelopmentPlanResponse(
         frd=FunctionalRequirementDocument(
-            title="Requirement-to-Development Plan Generator MVP",
-            summary=(
-                "Mock analysis generated from the submitted requirement. "
-                f"Input snapshot: {summary}"
+            problem_summary=(
+                f"Mock analysis for the submitted requirement. Input snapshot: {summary} "
+                "Teams currently struggle to turn raw ideas, meeting notes, and messy stakeholder "
+                "requirements into structured project proposals without manual effort."
             ),
-            functional_requirements=[
-                "Accept raw requirement text from the dashboard.",
-                "Accept optional PDF or DOCX uploads for future extraction.",
-                "Generate an FRD, user stories, a system diagram XML payload, and backlog tasks.",
-                "Return one stable JSON response that the frontend can render immediately.",
+            proposed_solution=(
+                "A Requirement-to-Development Plan Generator that transforms raw input into a "
+                "structured early project proposal including problem analysis, architecture diagram, "
+                "feature breakdown, timeline estimation, and risk analysis."
+            ),
+            scope_of_work=(
+                "In scope: requirement parsing, FRD generation, draw.io diagram generation, "
+                "feature prioritization, timeline estimation, risk identification. "
+                "Out of scope: automated resource allocation, budget estimation, CI/CD pipeline setup."
+            ),
+            user_flow=(
+                "1. User pastes raw requirement text or uploads a document. "
+                "2. System sends input to the backend API. "
+                "3. Backend calls Azure OpenAI to generate a structured plan. "
+                "4. Frontend displays the proposal across two tabs: FRD and System Diagram. "
+                "5. User can open the diagram in draw.io for further editing."
+            ),
+            initial_architecture=(
+                "Next.js frontend (TypeScript, TailwindCSS) → FastAPI backend (Python) → "
+                "Azure OpenAI Responses API (structured JSON schema output) → optional Draw.io MCP server "
+                "for diagram rendering. Two Vercel deployments."
+            ),
+            feature_breakdown=[
+                Feature(
+                    name="Requirement Input",
+                    description="Textarea and file upload for raw requirement text.",
+                    module="Frontend",
+                    priority="must_have",
+                ),
+                Feature(
+                    name="Plan Generation API",
+                    description="FastAPI endpoint that orchestrates LLM calls and returns structured JSON.",
+                    module="Backend",
+                    priority="must_have",
+                ),
+                Feature(
+                    name="FRD Display",
+                    description="Render all proposal sections: problem, solution, scope, flow, architecture, features, timeline, risks.",
+                    module="Frontend",
+                    priority="must_have",
+                ),
+                Feature(
+                    name="Diagram Generation",
+                    description="Generate draw.io XML via LLM and display preview with open-in-draw.io support.",
+                    module="Backend + Frontend",
+                    priority="must_have",
+                ),
+                Feature(
+                    name="Draw.io MCP Integration",
+                    description="Use MCP tools to search shapes and render diagrams.",
+                    module="Backend",
+                    priority="should_have",
+                ),
+                Feature(
+                    name="Document Parsing",
+                    description="Extract text from uploaded PDF and DOCX files.",
+                    module="Backend",
+                    priority="nice_to_have",
+                ),
             ],
-            non_functional_requirements=[
-                "Keep orchestration behind the FastAPI backend to protect API keys.",
-                "Prefer deterministic schemas for predictable frontend rendering.",
-                "Keep the MVP deployable as two simple services for hackathon speed.",
+            timeline_estimation=[
+                TimelinePhase(
+                    phase="Phase 1 — Core API",
+                    duration="1-2 days",
+                    deliverables=[
+                        "FastAPI endpoint with mock provider",
+                        "Pydantic response models",
+                        "Health check route",
+                    ],
+                ),
+                TimelinePhase(
+                    phase="Phase 2 — LLM Integration",
+                    duration="1-2 days",
+                    deliverables=[
+                        "Azure OpenAI Responses API wiring",
+                        "Structured JSON schema output",
+                        "Draw.io MCP tool integration",
+                    ],
+                ),
+                TimelinePhase(
+                    phase="Phase 3 — Frontend Dashboard",
+                    duration="2-3 days",
+                    deliverables=[
+                        "Requirement input form",
+                        "FRD proposal view (all 8 sections)",
+                        "System diagram preview and draw.io integration",
+                    ],
+                ),
+                TimelinePhase(
+                    phase="Phase 4 — Deploy & Polish",
+                    duration="1 day",
+                    deliverables=[
+                        "Vercel deployment (2 projects)",
+                        "CORS and env configuration",
+                        "Error handling and loading states",
+                    ],
+                ),
             ],
-            user_stories=user_stories,
+            risk_analysis=[
+                Risk(
+                    risk="LLM output may not conform to the expected JSON schema.",
+                    category="technical",
+                    mitigation="Use structured JSON schema output with fallback to raw JSON parsing.",
+                ),
+                Risk(
+                    risk="Draw.io MCP server may be unavailable or rate-limited.",
+                    category="integration",
+                    mitigation="Fallback to LLM-generated XML without MCP tool calls.",
+                ),
+                Risk(
+                    risk="Generated diagrams may be too complex or malformed.",
+                    category="technical",
+                    mitigation="Enforce simple diagram rules (8-16 nodes, orthogonal connectors) in the prompt.",
+                ),
+                Risk(
+                    risk="Hackathon timeline may not allow all features.",
+                    category="timeline",
+                    mitigation="Prioritize must-have features; defer document parsing and MCP integration.",
+                ),
+                Risk(
+                    risk="Stakeholder requirements may be too vague for meaningful output.",
+                    category="business",
+                    mitigation="Include clear problem summary and scope sections to surface ambiguity early.",
+                ),
+            ],
         ),
         diagram_xml=_dummy_drawio_xml(),
-        tasks=tasks,
         metadata={
             "mode": "mock",
             "recommended_model": "gpt-4.1",
@@ -348,14 +367,16 @@ You are an expert business analyst, software architect, and delivery lead.
 Generate a build-ready MVP plan from the raw requirement below.
 
 Return JSON only. The response must include:
-- frd.title
-- frd.summary
-- frd.functional_requirements
-- frd.non_functional_requirements
-- frd.user_stories with id, title, as_a, i_want, so_that, acceptance_criteria, priority
-- diagram_xml as a draw.io / diagrams.net mxfile XML string
-- tasks with id, title, description, status, priority, estimate_points, owner_role, tags
-- metadata as an object
+- frd.problem_summary — a clear explanation of the actual problem, pain points, and business impact.
+- frd.proposed_solution — a high-level explanation of the recommended system or application.
+- frd.scope_of_work — what is included, what is excluded, and project limitations.
+- frd.user_flow — a structured step-by-step flow showing how users interact with the system.
+- frd.initial_architecture — a high-level technical architecture description (frontend, backend, database, integrations, infrastructure).
+- frd.feature_breakdown — an array of features, each with name, description, module, and priority (must_have, should_have, nice_to_have).
+- frd.timeline_estimation — an array of phases, each with phase name, duration, and deliverables list.
+- frd.risk_analysis — an array of risks, each with risk description, category (business, technical, timeline, integration), and mitigation.
+- diagram_xml — a valid draw.io mxfile XML string representing the system architecture.
+- metadata — an object.
 
 Diagram rules:
 - You MUST generate the diagram_xml yourself as valid, uncompressed draw.io XML.
@@ -373,9 +394,8 @@ Mandatory XML structure:
 - All id values must be unique.
 
 Rules:
-- Use task status values only: todo, in_progress, done.
-- Use priority values only: low, medium, high.
-- Keep estimates between 1 and 13 points.
+- Feature priority values: must_have, should_have, nice_to_have.
+- Risk category values: business, technical, timeline, integration.
 - Make the output useful for a 2-day hackathon team.
 - {mcp_instruction}
 

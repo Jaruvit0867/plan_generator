@@ -1,59 +1,64 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 import {
   ArrowRight,
-  CheckCircle2,
+  AlertTriangle,
+  Calendar,
   ClipboardList,
   Code2,
   Download,
   ExternalLink,
   FileUp,
-  Layers3,
+  Layers,
   Loader2,
+  Map,
   Network,
+  Shield,
   Sparkles,
+  Target,
+  Zap,
 } from "lucide-react";
 import clsx from "clsx";
 import { deflateRaw } from "pako";
 
-type Priority = "low" | "medium" | "high";
-type TaskStatus = "todo" | "in_progress" | "done";
-type TabKey = "frd" | "diagram" | "tasks";
+type FeaturePriority = "must_have" | "should_have" | "nice_to_have";
+type RiskCategory = "business" | "technical" | "timeline" | "integration";
+type TabKey = "frd" | "diagram";
 
-type UserStory = {
-  id: string;
-  title: string;
-  as_a: string;
-  i_want: string;
-  so_that: string;
-  acceptance_criteria: string[];
-  priority: Priority;
+type Feature = {
+  name: string;
+  description: string;
+  module: string;
+  priority: FeaturePriority;
+};
+
+type TimelinePhase = {
+  phase: string;
+  duration: string;
+  deliverables: string[];
+};
+
+type Risk = {
+  risk: string;
+  category: RiskCategory;
+  mitigation: string;
 };
 
 type Frd = {
-  title: string;
-  summary: string;
-  functional_requirements: string[];
-  non_functional_requirements: string[];
-  user_stories: UserStory[];
-};
-
-type BacklogTask = {
-  id: string;
-  title: string;
-  description: string;
-  status: TaskStatus;
-  priority: Priority;
-  estimate_points: number;
-  owner_role: string;
-  tags: string[];
+  problem_summary: string;
+  proposed_solution: string;
+  scope_of_work: string;
+  user_flow: string;
+  initial_architecture: string;
+  feature_breakdown: Feature[];
+  timeline_estimation: TimelinePhase[];
+  risk_analysis: Risk[];
 };
 
 type GeneratePlanResponse = {
   frd: Frd;
   diagram_xml: string;
-  tasks: BacklogTask[];
   metadata: Record<string, string>;
 };
 
@@ -61,15 +66,8 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 const tabs: Array<{ key: TabKey; label: string; icon: typeof ClipboardList }> = [
-  { key: "frd", label: "FRD & Stories", icon: ClipboardList },
+  { key: "frd", label: "Proposal", icon: ClipboardList },
   { key: "diagram", label: "System Diagram", icon: Network },
-  { key: "tasks", label: "Task Board", icon: Layers3 },
-];
-
-const statusColumns: Array<{ key: TaskStatus; label: string }> = [
-  { key: "todo", label: "To Do" },
-  { key: "in_progress", label: "In Progress" },
-  { key: "done", label: "Done" },
 ];
 
 export default function Home() {
@@ -79,26 +77,6 @@ export default function Home() {
   const [result, setResult] = useState<GeneratePlanResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const groupedTasks = useMemo(() => {
-    const empty: Record<TaskStatus, BacklogTask[]> = {
-      todo: [],
-      in_progress: [],
-      done: [],
-    };
-
-    if (!result) {
-      return empty;
-    }
-
-    return result.tasks.reduce<Record<TaskStatus, BacklogTask[]>>(
-      (groups, task) => {
-        groups[task.status].push(task);
-        return groups;
-      },
-      empty,
-    );
-  }, [result]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -181,7 +159,7 @@ export default function Home() {
               Convert rough requirements into a build-ready MVP plan.
             </h1>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-600 sm:min-w-80">
+          <div className="grid grid-cols-2 gap-2 text-center text-xs text-slate-600 sm:min-w-56">
             <Metric
               label="Provider"
               value={result?.metadata.provider ?? "Azure OpenAI"}
@@ -194,7 +172,6 @@ export default function Home() {
                 "gpt-4.1"
               }
             />
-            <Metric label="API" value="FastAPI" />
           </div>
         </header>
 
@@ -271,7 +248,7 @@ export default function Home() {
                   Generated Outputs
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Azure OpenAI returns structured outputs for planning, diagramming, and delivery.
+                  Azure OpenAI returns structured outputs for planning and diagramming.
                 </p>
               </div>
               <div className="flex rounded-md bg-slate-100 p-1">
@@ -310,9 +287,6 @@ export default function Home() {
                       onOpenInDrawio={openDiagramInDrawio}
                     />
                   ) : null}
-                  {activeTab === "tasks" ? (
-                    <TaskBoard groupedTasks={groupedTasks} />
-                  ) : null}
                 </>
               ) : null}
             </div>
@@ -322,6 +296,8 @@ export default function Home() {
     </main>
   );
 }
+
+/* ─── Shared helpers ─── */
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
@@ -344,8 +320,8 @@ function EmptyState() {
         Ready for the first generated plan
       </h3>
       <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-        Add a requirement brief on the left, then generate an FRD, diagram XML,
-        and delivery backlog from the connected backend.
+        Add a requirement brief on the left, then generate a proposal and system
+        diagram from the connected backend.
       </p>
     </div>
   );
@@ -359,95 +335,203 @@ function LoadingState() {
         Generating with Azure OpenAI
       </h3>
       <p className="mt-2 text-sm text-slate-500">
-        Shaping FRD JSON, draw.io XML, and backlog tasks.
+        Shaping proposal, draw.io XML, and risk analysis.
       </p>
     </div>
   );
 }
 
-function FrdView({ frd }: { frd: Frd }) {
-  return (
-    <div className="grid gap-4">
-      <div className="rounded-lg border border-slate-200 bg-panel p-4">
-        <h3 className="text-xl font-semibold text-ink">{frd.title}</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{frd.summary}</p>
-      </div>
+/* ─── Section card ─── */
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <RequirementList
-          title="Functional Requirements"
-          items={frd.functional_requirements}
-        />
-        <RequirementList
-          title="Non-functional Requirements"
-          items={frd.non_functional_requirements}
-        />
-      </div>
-
-      <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          User Stories
-        </h3>
-        <div className="grid gap-3">
-          {frd.user_stories.map((story) => (
-            <article
-              key={story.id}
-              className="rounded-lg border border-slate-200 bg-white p-4"
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <div className="text-xs font-semibold text-ocean">
-                    {story.id}
-                  </div>
-                  <h4 className="mt-1 text-base font-semibold text-ink">
-                    {story.title}
-                  </h4>
-                </div>
-                <PriorityBadge priority={story.priority} />
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
-                As a <strong>{story.as_a}</strong>, I want {story.i_want}, so
-                that {story.so_that}.
-              </p>
-              <ul className="mt-3 grid gap-2">
-                {story.acceptance_criteria.map((criterion) => (
-                  <li
-                    key={criterion}
-                    className="flex gap-2 text-sm text-slate-600"
-                  >
-                    <CheckCircle2
-                      className="mt-0.5 h-4 w-4 shrink-0 text-mint"
-                      aria-hidden="true"
-                    />
-                    <span>{criterion}</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RequirementList({ title, items }: { title: string; items: string[] }) {
+function SectionCard({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: typeof ClipboardList;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+      <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+        <Icon className="h-4 w-4 text-ocean" aria-hidden="true" />
         {title}
-      </h3>
-      <ul className="mt-3 grid gap-2">
-        {items.map((item) => (
-          <li key={item} className="flex gap-2 text-sm leading-6 text-slate-600">
-            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-ocean" />
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
+      </div>
+      <div className="mt-3">{children}</div>
     </div>
   );
 }
+
+/* ─── FRD view ─── */
+
+function FrdView({ frd }: { frd: Frd }) {
+  const moduleGroups = frd.feature_breakdown.reduce<
+    Record<string, Feature[]>
+  >((groups, feature) => {
+    (groups[feature.module] ??= []).push(feature);
+    return groups;
+  }, {});
+
+  return (
+    <div className="grid gap-4">
+      <SectionCard icon={Target} title="Problem Summary">
+        <p className="text-sm leading-7 text-slate-600">
+          {frd.problem_summary}
+        </p>
+      </SectionCard>
+
+      <SectionCard icon={Zap} title="Proposed Solution">
+        <p className="text-sm leading-7 text-slate-600">
+          {frd.proposed_solution}
+        </p>
+      </SectionCard>
+
+      <SectionCard icon={Layers} title="Scope of Work">
+        <p className="whitespace-pre-line text-sm leading-7 text-slate-600">
+          {frd.scope_of_work}
+        </p>
+      </SectionCard>
+
+      <SectionCard icon={Map} title="User Flow">
+        <p className="whitespace-pre-line text-sm leading-7 text-slate-600">
+          {frd.user_flow}
+        </p>
+      </SectionCard>
+
+      <SectionCard icon={Network} title="Initial Architecture">
+        <p className="whitespace-pre-line text-sm leading-7 text-slate-600">
+          {frd.initial_architecture}
+        </p>
+      </SectionCard>
+
+      <SectionCard icon={ClipboardList} title="Feature Breakdown">
+        <div className="grid gap-4">
+          {Object.entries(moduleGroups).map(([module, features]) => (
+            <div key={module}>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                {module}
+              </h4>
+              <div className="grid gap-2">
+                {features.map((feature) => (
+                  <div
+                    key={feature.name}
+                    className="flex items-start justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2"
+                  >
+                    <div>
+                      <div className="text-sm font-semibold text-ink">
+                        {feature.name}
+                      </div>
+                      <div className="mt-1 text-sm text-slate-600">
+                        {feature.description}
+                      </div>
+                    </div>
+                    <FeaturePriorityBadge priority={feature.priority} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard icon={Calendar} title="Timeline Estimation">
+        <div className="grid gap-3">
+          {frd.timeline_estimation.map((phase, index) => (
+            <div
+              key={phase.phase}
+              className="flex gap-4 rounded-md border border-slate-100 bg-slate-50 p-3"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ocean text-sm font-bold text-white">
+                {index + 1}
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-ink">
+                  {phase.phase}
+                </div>
+                <div className="mt-1 text-xs font-medium text-ocean">
+                  {phase.duration}
+                </div>
+                <ul className="mt-2 grid gap-1">
+                  {phase.deliverables.map((deliverable) => (
+                    <li
+                      key={deliverable}
+                      className="flex gap-2 text-sm text-slate-600"
+                    >
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-mint" />
+                      {deliverable}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard icon={Shield} title="Risk Analysis">
+        <div className="grid gap-2">
+          {frd.risk_analysis.map((item, index) => (
+            <div
+              key={index}
+              className="flex items-start gap-3 rounded-md border border-slate-100 bg-slate-50 p-3"
+            >
+              <AlertTriangle
+                className="mt-0.5 h-4 w-4 shrink-0 text-amberline"
+                aria-hidden="true"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-ink">
+                    {item.risk}
+                  </span>
+                  <RiskCategoryBadge category={item.category} />
+                </div>
+                <div className="mt-1 text-sm text-slate-600">
+                  <strong>Mitigation:</strong> {item.mitigation}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+function FeaturePriorityBadge({ priority }: { priority: FeaturePriority }) {
+  const label = priority.replace("_", " ");
+  return (
+    <span
+      className={clsx(
+        "shrink-0 rounded px-2 py-1 text-xs font-semibold capitalize",
+        priority === "must_have" && "bg-red-50 text-red-700",
+        priority === "should_have" && "bg-amber-50 text-amber-700",
+        priority === "nice_to_have" && "bg-emerald-50 text-emerald-700",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function RiskCategoryBadge({ category }: { category: RiskCategory }) {
+  return (
+    <span
+      className={clsx(
+        "rounded px-2 py-0.5 text-xs font-semibold capitalize",
+        category === "business" && "bg-blue-50 text-blue-700",
+        category === "technical" && "bg-purple-50 text-purple-700",
+        category === "timeline" && "bg-amber-50 text-amber-700",
+        category === "integration" && "bg-teal-50 text-teal-700",
+      )}
+    >
+      {category}
+    </span>
+  );
+}
+
+/* ─── Diagram view ─── */
 
 function DiagramView({
   xml,
@@ -495,6 +579,8 @@ function DiagramView({
   );
 }
 
+/* ─── Draw.io URL builder ─── */
+
 function buildDrawioEditUrl(xml: string) {
   const encodedXml = encodeURIComponent(xml);
   const compressed = deflateRaw(encodedXml);
@@ -510,82 +596,4 @@ function buildDrawioEditUrl(xml: string) {
   return `https://app.diagrams.net/?pv=0&grid=0#create=${encodeURIComponent(
     JSON.stringify(createPayload),
   )}`;
-}
-
-function TaskBoard({
-  groupedTasks,
-}: {
-  groupedTasks: Record<TaskStatus, BacklogTask[]>;
-}) {
-  return (
-    <div className="grid gap-4 xl:grid-cols-3">
-      {statusColumns.map((column) => (
-        <div
-          key={column.key}
-          className="min-h-96 rounded-lg border border-slate-200 bg-slate-50 p-3"
-        >
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              {column.label}
-            </h3>
-            <span className="rounded bg-white px-2 py-1 text-xs font-semibold text-slate-500">
-              {groupedTasks[column.key].length}
-            </span>
-          </div>
-          <div className="grid gap-3">
-            {groupedTasks[column.key].map((task) => (
-              <article
-                key={task.id}
-                className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-xs font-semibold text-ocean">
-                      {task.id}
-                    </div>
-                    <h4 className="mt-1 text-sm font-semibold leading-5 text-ink">
-                      {task.title}
-                    </h4>
-                  </div>
-                  <PriorityBadge priority={task.priority} />
-                </div>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  {task.description}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {task.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
-                  <span>{task.owner_role}</span>
-                  <span>{task.estimate_points} pts</span>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: Priority }) {
-  return (
-    <span
-      className={clsx(
-        "rounded px-2 py-1 text-xs font-semibold capitalize",
-        priority === "high" && "bg-red-50 text-red-700",
-        priority === "medium" && "bg-amber-50 text-amber-700",
-        priority === "low" && "bg-emerald-50 text-emerald-700",
-      )}
-    >
-      {priority}
-    </span>
-  );
 }

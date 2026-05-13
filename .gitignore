@@ -10,4 +10,3 @@ __pycache__/
 *.pyc
 *.tsbuildinfo
 .DS_Store
-CLAUDE.md
