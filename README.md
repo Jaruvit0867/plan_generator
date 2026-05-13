@@ -1,16 +1,23 @@
 # Requirement-to-Development Plan Generator
 
-Hackathon MVP that turns raw requirement notes into a development-ready plan:
+Turns raw requirement notes into a structured early project proposal:
 
-- Functional Requirement Document (FRD) and user stories
-- draw.io / diagrams.net XML diagram
-- Developer task backlog
+- Problem Summary
+- Proposed Solution
+- Scope of Work
+- User Flow
+- Initial Architecture
+- Feature Breakdown
+- Timeline Estimation
+- Risk Analysis
+
+Plus a draw.io system diagram. Export the proposal as DOCX or PDF.
 
 The app uses a Next.js dashboard, a FastAPI backend, Azure OpenAI Responses API, and the hosted Draw.io MCP server.
 
 ## Project Structure
 
-- `backend/` - FastAPI API, Azure OpenAI orchestration, Draw.io MCP tool wiring, Vercel entrypoint
+- `backend/` - FastAPI API, Azure OpenAI orchestration, Draw.io MCP tool wiring, DOCX/PDF export, Vercel entrypoint
 - `frontend/` - Next.js, React, TypeScript, TailwindCSS dashboard
 
 ## Local Setup
@@ -58,8 +65,10 @@ Useful URLs:
 - Health check: `http://127.0.0.1:8000/health`
 - API docs: `http://127.0.0.1:8000/docs`
 - Generate endpoint: `POST http://127.0.0.1:8000/api/generate-plan`
+- Export DOCX: `POST http://127.0.0.1:8000/api/export/docx`
+- Export PDF: `POST http://127.0.0.1:8000/api/export/pdf`
 
-Request fields:
+Request fields for generate:
 
 - `requirement_text` - raw requirement text
 - `file` - optional PDF/DOCX upload placeholder
@@ -89,7 +98,7 @@ Requirement text
   -> FastAPI backend
   -> Azure OpenAI Responses API
   -> Draw.io MCP server
-  -> FRD JSON + draw.io XML + backlog JSON
+  -> Proposal JSON + draw.io XML
 ```
 
 The frontend can:
@@ -97,6 +106,10 @@ The frontend can:
 - Preview the XML
 - Download the `.drawio` XML file
 - Open the generated XML directly in diagrams.net with the `Open in Draw.io` button
+
+## Export
+
+The proposal (FRD) can be exported as DOCX or PDF. The export buttons appear next to the tab bar after generating a plan. The frontend sends the FRD JSON to the backend, which generates the file and returns it as a download.
 
 ## Vercel Deployment
 
