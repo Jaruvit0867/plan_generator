@@ -5,13 +5,16 @@ from typing import Annotated
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from services.llm_service import (
     DevelopmentPlanResponse,
+    FunctionalRequirementDocument,
     LLMConfigurationError,
     LLMGenerationError,
     generate_development_plan,
 )
+from services.export_service import generate_docx, generate_pdf
 
 
 DEFAULT_CORS_ORIGINS = [
@@ -92,3 +95,25 @@ async def generate_plan(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except LLMGenerationError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/api/export/docx")
+async def export_docx(frd: FunctionalRequirementDocument) -> StreamingResponse:
+    """Export the FRD as a downloadable DOCX file."""
+    buf = generate_docx(frd)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": "attachment; filename=development-plan.docx"},
+    )
+
+
+@app.post("/api/export/pdf")
+async def export_pdf(frd: FunctionalRequirementDocument) -> StreamingResponse:
+    """Export the FRD as a downloadable PDF file."""
+    buf = generate_pdf(frd)
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=development-plan.pdf"},
+    )

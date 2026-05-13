@@ -73,7 +73,7 @@ def _summarize_requirement(requirement_text: str) -> str:
 
 def _dummy_drawio_xml() -> str:
     return """<mxfile host="app.diagrams.net" modified="2026-05-13T00:00:00.000Z" agent="mock-llm-service" version="24.7.17">
-  <diagram id="requirement-plan" name="MVP Architecture">
+  <diagram id="requirement-plan" name="System Architecture">
     <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
@@ -230,9 +230,9 @@ def _mock_development_plan(requirement_text: str) -> DevelopmentPlanResponse:
                     mitigation="Enforce simple diagram rules (8-16 nodes, orthogonal connectors) in the prompt.",
                 ),
                 Risk(
-                    risk="Hackathon timeline may not allow all features.",
+                    risk="Project timeline may not allow all features to be delivered on schedule.",
                     category="timeline",
-                    mitigation="Prioritize must-have features; defer document parsing and MCP integration.",
+                    mitigation="Prioritize must-have features; defer nice-to-have items to a later iteration.",
                 ),
                 Risk(
                     risk="Stakeholder requirements may be too vague for meaningful output.",
@@ -364,7 +364,7 @@ def _build_generation_prompt(requirement_text: str, has_mcp: bool) -> str:
     return f"""
 You are an expert business analyst, software architect, and delivery lead.
 
-Generate a build-ready MVP plan from the raw requirement below.
+Generate a build-ready development plan from the raw requirement below.
 
 Return JSON only. The response must include:
 - frd.problem_summary — a clear explanation of the actual problem, pain points, and business impact.
@@ -396,7 +396,7 @@ Mandatory XML structure:
 Rules:
 - Feature priority values: must_have, should_have, nice_to_have.
 - Risk category values: business, technical, timeline, integration.
-- Make the output useful for a 2-day hackathon team.
+- Make the output realistic and actionable for a development team.
 - {mcp_instruction}
 
 Raw requirement:

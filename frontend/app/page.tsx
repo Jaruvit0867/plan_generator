@@ -9,6 +9,8 @@ import {
   Code2,
   Download,
   ExternalLink,
+  FileDown,
+  FileText,
   FileUp,
   Layers,
   Loader2,
@@ -146,6 +148,32 @@ export default function Home() {
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
+  async function downloadExport(format: "docx" | "pdf") {
+    if (!result) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/export/${format}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(result.frd),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Export failed with ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `development-plan.${format}`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed.");
+    }
+  }
+
   return (
     <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-5">
@@ -156,7 +184,7 @@ export default function Home() {
               Requirement-to-Development Plan Generator
             </div>
             <h1 className="mt-2 text-2xl font-semibold tracking-normal text-ink sm:text-3xl">
-              Convert rough requirements into a build-ready MVP plan.
+              Convert rough requirements into a build-ready development plan.
             </h1>
           </div>
           <div className="grid grid-cols-2 gap-2 text-center text-xs text-slate-600 sm:min-w-56">
@@ -251,26 +279,48 @@ export default function Home() {
                   Azure OpenAI returns structured outputs for planning and diagramming.
                 </p>
               </div>
-              <div className="flex rounded-md bg-slate-100 p-1">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon;
-                  return (
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-md bg-slate-100 p-1">
+                  {tabs.map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setActiveTab(tab.key)}
+                        className={clsx(
+                          "inline-flex h-9 items-center gap-2 rounded px-3 text-sm font-medium transition",
+                          activeTab === tab.key
+                            ? "bg-white text-ink shadow-sm"
+                            : "text-slate-500 hover:text-slate-800",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                        <span className="hidden sm:inline">{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {result ? (
+                  <div className="flex gap-1">
                     <button
-                      key={tab.key}
                       type="button"
-                      onClick={() => setActiveTab(tab.key)}
-                      className={clsx(
-                        "inline-flex h-9 items-center gap-2 rounded px-3 text-sm font-medium transition",
-                        activeTab === tab.key
-                          ? "bg-white text-ink shadow-sm"
-                          : "text-slate-500 hover:text-slate-800",
-                      )}
+                      onClick={() => downloadExport("docx")}
+                      title="Download DOCX"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:border-ocean hover:text-ocean"
                     >
-                      <Icon className="h-4 w-4" aria-hidden="true" />
-                      <span className="hidden sm:inline">{tab.label}</span>
+                      <FileText className="h-4 w-4" aria-hidden="true" />
                     </button>
-                  );
-                })}
+                    <button
+                      type="button"
+                      onClick={() => downloadExport("pdf")}
+                      title="Download PDF"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:border-ocean hover:text-ocean"
+                    >
+                      <FileDown className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
 
