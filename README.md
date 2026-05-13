@@ -1,210 +1,74 @@
 # Requirement-to-Development Plan Generator
 
-Turns raw requirement notes into a structured early project proposal:
+Turns raw requirement notes into a structured project proposal with a system diagram. The proposal covers problem summary, proposed solution, scope, user flow, architecture, feature breakdown, timeline, and risks. Export as DOCX or PDF.
 
-- Problem Summary
-- Proposed Solution
-- Scope of Work
-- User Flow
-- Initial Architecture
-- Feature Breakdown
-- Timeline Estimation
-- Risk Analysis
-
-Plus a draw.io system diagram. Export the proposal as DOCX or PDF.
-
-The app uses a Next.js dashboard, a FastAPI backend, Azure OpenAI Responses API, and the hosted Draw.io MCP server.
-
-## Project Structure
-
-- `backend/` - FastAPI API, Azure OpenAI orchestration, Draw.io MCP tool wiring, DOCX/PDF export, Vercel entrypoint
-- `frontend/` - Next.js, React, TypeScript, TailwindCSS dashboard
+Stack: Next.js 15 (TypeScript, TailwindCSS) + FastAPI (Python) + Azure OpenAI Responses API + Draw.io MCP server.
 
 ## Local Setup
-
-Create the root `.env.local` from the example:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Fill in the Azure OpenAI values:
+Edit `.env.local` with your Azure OpenAI credentials. Then:
 
 ```bash
-LLM_PROVIDER=azure_openai
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-AZURE_OPENAI_BASE_URL=https://<your-resource>.services.ai.azure.com/api/projects/<project>/openai/v1/
-AZURE_OPENAI_API_KEY=<your-api-key>
-AZURE_OPENAI_DEPLOYMENT=<your-deployment-name>
-AZURE_OPENAI_TEMPERATURE=0.2
-AZURE_OPENAI_MAX_OUTPUT_TOKENS=6000
-DRAWIO_MCP_URL=https://mcp.draw.io/mcp
-DRAWIO_MCP_SERVER_LABEL=drawio
-DRAWIO_MCP_REQUIRE_APPROVAL=never
-DRAWIO_MCP_ALLOWED_TOOLS=create_diagram,search_shapes
-```
-
-Notes:
-
-- `AZURE_OPENAI_DEPLOYMENT` is the deployment name in Azure AI Foundry. It may be `gpt-4.1` only if that is the exact deployment name.
-- `AZURE_OPENAI_BASE_URL` must end at `/openai/v1/`. Do not append `/responses`.
-- The backend uses API key auth only. It does not require `az login`.
-
-## Run Backend
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
+# Backend
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r backend/requirements.txt
-cd backend
-../.venv/bin/uvicorn main:app --reload --host 127.0.0.1 --port 8000
+cd backend && ../.venv/bin/uvicorn main:app --reload --port 8000
+
+# Frontend (separate terminal)
+cd frontend && npm install && npm run dev
 ```
 
-Useful URLs:
+- Frontend: http://localhost:3000
+- Backend docs: http://127.0.0.1:8000/docs
 
-- Health check: `http://127.0.0.1:8000/health`
-- API docs: `http://127.0.0.1:8000/docs`
-- Generate endpoint: `POST http://127.0.0.1:8000/api/generate-plan`
-- Export DOCX: `POST http://127.0.0.1:8000/api/export/docx`
-- Export PDF: `POST http://127.0.0.1:8000/api/export/pdf`
+Set `LLM_PROVIDER=mock` in `.env.local` for UI-only development without Azure OpenAI.
 
-Request fields for generate:
+## API Endpoints
 
-- `requirement_text` - raw requirement text
-- `file` - optional PDF/DOCX upload placeholder
+| Endpoint | Method | Description |
+|---|---|---|
+| `/health` | GET | Health check |
+| `/api/generate-plan` | POST | Generate proposal from `requirement_text` (form field) + optional `file` upload |
+| `/api/export/docx` | POST | Export FRD as DOCX (JSON body) |
+| `/api/export/pdf` | POST | Export FRD as PDF (JSON body) |
 
-## Run Frontend
+## Environment Variables
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+All variables live in `.env.local` at the project root.
 
-Open `http://127.0.0.1:3000`.
-
-Optional frontend env:
-
-```bash
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
-```
-
-## Diagram Flow
-
-The backend asks Azure OpenAI to generate a structured plan and `diagram_xml`. When `DRAWIO_MCP_URL` is configured, the model can use the Draw.io MCP server:
-
-```text
-Requirement text
-  -> FastAPI backend
-  -> Azure OpenAI Responses API
-  -> Draw.io MCP server
-  -> Proposal JSON + draw.io XML
-```
-
-The frontend can:
-
-- Preview the XML
-- Download the `.drawio` XML file
-- Open the generated XML directly in diagrams.net with the `Open in Draw.io` button
-
-## Export
-
-The proposal (FRD) can be exported as DOCX or PDF. The export buttons appear next to the tab bar after generating a plan. The frontend sends the FRD JSON to the backend, which generates the file and returns it as a download.
+| Variable | Default | Notes |
+|---|---|---|
+| `LLM_PROVIDER` | `mock` | `azure_openai` or `mock` |
+| `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated origins |
+| `AZURE_OPENAI_BASE_URL` | — | Must end at `/openai/v1/`, never append `/responses` |
+| `AZURE_OPENAI_API_KEY` | — | API key auth only, no `az login` |
+| `AZURE_OPENAI_DEPLOYMENT` | — | Deployment name in Azure AI Foundry |
+| `AZURE_OPENAI_TEMPERATURE` | `0.2` | |
+| `AZURE_OPENAI_MAX_OUTPUT_TOKENS` | `6000` | |
+| `DRAWIO_MCP_URL` | — | e.g. `https://mcp.draw.io/mcp` |
+| `DRAWIO_MCP_SERVER_LABEL` | `drawio` | |
+| `DRAWIO_MCP_REQUIRE_APPROVAL` | `never` | |
+| `DRAWIO_MCP_ALLOWED_TOOLS` | — | e.g. `create_diagram,search_shapes` |
+| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000` | Frontend only |
 
 ## Vercel Deployment
 
-Deploy this repo as two Vercel projects.
+Deploy as two Vercel projects:
 
-### Backend Project
+**Backend** — Root: `backend`, Entrypoint: `backend/index.py`, no build command.
 
-- Root Directory: `backend`
-- Framework Preset: Other / FastAPI
-- Entrypoint: `backend/index.py`
-- Build Command: leave empty
-- Install Command: default, or `pip install -r requirements.txt`
+**Frontend** — Root: `frontend`, standard Next.js build.
 
-Backend environment variables:
+Deploy order: backend first → copy backend domain → deploy frontend with `NEXT_PUBLIC_API_BASE_URL` → copy frontend domain → update backend `CORS_ORIGINS` → redeploy backend.
 
-```bash
-LLM_PROVIDER=azure_openai
-CORS_ORIGINS=https://<your-frontend-domain>.vercel.app
-AZURE_OPENAI_BASE_URL=https://<your-resource>.services.ai.azure.com/api/projects/<project>/openai/v1/
-AZURE_OPENAI_API_KEY=<your-api-key>
-AZURE_OPENAI_DEPLOYMENT=<your-deployment-name>
-AZURE_OPENAI_TEMPERATURE=0.2
-AZURE_OPENAI_MAX_OUTPUT_TOKENS=6000
-DRAWIO_MCP_URL=https://mcp.draw.io/mcp
-DRAWIO_MCP_SERVER_LABEL=drawio
-DRAWIO_MCP_REQUIRE_APPROVAL=never
-DRAWIO_MCP_ALLOWED_TOOLS=create_diagram,search_shapes
-```
+## Troubleshooting
 
-Use the stable domain from Vercel's Domains tab. Do not use a per-deployment URL.
+**Azure OpenAI 405** — `AZURE_OPENAI_BASE_URL` must end at `/openai/v1/`. Do not append `/responses`.
 
-### Frontend Project
+**Browser CORS error** — Set `CORS_ORIGINS` to the exact frontend domain, then redeploy the backend.
 
-- Root Directory: `frontend`
-- Framework Preset: Next.js
-- Install Command: `npm install`
-- Build Command: `npm run build`
-
-Frontend environment variable:
-
-```bash
-NEXT_PUBLIC_API_BASE_URL=https://<your-backend-domain>.vercel.app
-```
-
-Recommended deploy order:
-
-1. Deploy backend.
-2. Copy the backend domain.
-3. Deploy frontend with `NEXT_PUBLIC_API_BASE_URL`.
-4. Copy the frontend domain.
-5. Update backend `CORS_ORIGINS` with the frontend domain.
-6. Redeploy backend.
-
-## Common Issues
-
-### Azure OpenAI 405
-
-Usually caused by a bad base URL. This is wrong:
-
-```bash
-AZURE_OPENAI_BASE_URL=https://.../openai/v1/responses
-```
-
-Use:
-
-```bash
-AZURE_OPENAI_BASE_URL=https://.../openai/v1/
-```
-
-### Browser CORS Error
-
-Set `CORS_ORIGINS` in the backend project to the exact frontend domain:
-
-```bash
-CORS_ORIGINS=https://<your-frontend-domain>.vercel.app
-```
-
-Then redeploy the backend.
-
-### Local Frontend Looks Unstyled
-
-Restart the frontend dev server and clear Next's dev cache:
-
-```bash
-cd frontend
-rm -rf .next
-npm run dev
-```
-
-## Local Mock Mode
-
-For UI-only development without calling Azure OpenAI:
-
-```bash
-LLM_PROVIDER=mock
-```
-
-Mock mode keeps the same response shape as Azure mode, so the frontend does not need to change.
+**Frontend unstyled** — Clear the dev cache: `cd frontend && rm -rf .next && npm run dev`.
