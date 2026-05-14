@@ -79,6 +79,7 @@ export default function Home() {
   const [result, setResult] = useState<GeneratePlanResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [drawioUrl, setDrawioUrl] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -145,7 +146,13 @@ export default function Home() {
     }
 
     const url = buildDrawioEditUrl(result.diagram_xml);
-    window.open(url, "_blank", "noopener,noreferrer");
+    const win = window.open(url, "_blank", "noopener,noreferrer");
+    if (!win || win.closed) {
+      // Popup was blocked — show link for manual open
+      setDrawioUrl(url);
+    } else {
+      setDrawioUrl(null);
+    }
   }
 
   async function downloadExport(format: "docx" | "pdf") {
@@ -335,6 +342,7 @@ export default function Home() {
                       xml={result.diagram_xml}
                       onDownload={downloadDiagramXml}
                       onOpenInDrawio={openDiagramInDrawio}
+                      drawioUrl={drawioUrl}
                     />
                   ) : null}
                 </>
@@ -587,13 +595,32 @@ function DiagramView({
   xml,
   onDownload,
   onOpenInDrawio,
+  drawioUrl,
 }: {
   xml: string;
   onDownload: () => void;
   onOpenInDrawio: () => void;
+  drawioUrl: string | null;
 }) {
   return (
     <div className="grid gap-4">
+      {drawioUrl && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+          <p className="font-semibold">Can't open Draw.io? Popup was blocked by your browser.</p>
+          <p className="mt-1">
+            Click{" "}
+            <a
+              href={drawioUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold underline hover:text-amber-600"
+            >
+              here
+            </a>{" "}
+            to open the diagram, or allow popups from this site in your browser settings.
+          </p>
+        </div>
+      )}
       <div className="grid gap-3 rounded-lg border border-slate-200 bg-panel p-4 md:grid-cols-[1fr_auto] md:items-center">
         <div>
           <h3 className="text-lg font-semibold text-ink">
